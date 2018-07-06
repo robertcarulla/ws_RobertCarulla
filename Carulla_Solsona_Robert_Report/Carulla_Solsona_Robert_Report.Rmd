@@ -1,0 +1,463 @@
+---
+title: "Project of WebScraping"
+author: "Robert Carulla Solsona"
+date: "13 de mayo de 2018"
+output:
+  html_document: default
+  pdf_document:
+    number_sections: yes
+  word_document: default
+header-includes:
+- \usepackage{float}
+- \floatplacement{figure}{H}
+fontsize: 12pt
+---
+\pagenumbering{gobble}
+\vspace{1in}
+
+\begin{center}
+\begin{Huge}
+\textbf{WebScraping from Metacritic}
+\end{Huge}
+\end{center}
+
+\vspace{1.8in}
+
+\begin{figure}[htb]
+\begin{center}
+\includegraphics[width=4cm]{imatge2.jpg}
+\end{center}
+\end{figure}
+
+\begin{center}
+\textbf{Facultat de Matemàtiques i Estadística}\\
+\textbf{Màster en Estadística i Investigació Operativa}
+\end{center}
+
+\vspace{0.6in}
+
+
+\begin{figure}[htb]
+\begin{center}
+\includegraphics[width=8cm]{imatge1.jpg}
+\end{center}
+\end{figure}
+
+\newpage
+\pagenumbering{arabic}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+\tableofcontents
+
+```{r include=FALSE}
+if(!require("rvest")) install.packages("rvest")
+if(!require("lubridate")) install.packages("lubridate")
+if(!require("stringr")) install.packages("stringr")
+if(!require("Hmisc")) install.packages("Hmisc")
+
+require(rvest)
+require(lubridate)
+require(stringr)
+require(Hmisc)
+```
+
+
+
+\newpage
+
+# Goal
+
+The aim of this project is to scrab data from the www.metacritic.com and to carry out a descriptive analysis of this data. Metacritic is a web where there are ratings of movies and videogames. In this case we are going to analyse the game rates.
+
+Metacritic is a reference web to check the ratings because it has the mean for each videogame of a lot of recognized magazines and webs from around the world that rate that videogame. Apart from this, the web also contains the users mean, which is the mean of the grades that the users give to a determined game.
+
+The purpose is to analyse if there is difference between the rates of the magazines and the rates of the users. If there is evident difference between users and magazines could be for different reasons such as the magazines tend to rate better the games that come from a strong company, because of the company pays money to the magazines; or because the users sometimes are "trolls" that rate very low a game simply because they don't like it. 
+
+Another interesting thing to analyse is the way that the rates have evolved through the time, then we can see which was the best period of time for videogames. We can also see which is the platform with more games in the top 100, and then we will see which could have been the best console of all times.
+
+
+# The data source and approach used for downloading
+
+As I explained before, the data source is www.metacritic.com and the web technology is HTML. In order to scrap the data I used the gadget selector and the source code of the web. I did a tutorial of CSS selectors to learn how to get an specific element from an specific class, descendant selector, descendant selector with ID, etc. Here the link of this tutorial http://flukeout.github.io/. I scrapped the data of the top 100 videogames of all times (whatever the platform), and the top 100 videogames for the following platforms, PS4, Xbox One, Nintendo Switch, PC, WiiU, Nintendo 3DS, PS vita and ios. For all that I scrapped the data of the top 100 videogames regarding the metascore criteria and regarding the userscore criteria, obtaining then 18 datasets. In this project we are going to explore only the data related to "all" games of all consoles of all times, and we are not going to analyse the datasets of the specific consoles, since it would be too much long. Once I had scrapped the data, I used functions from the package `stringr()` and regular expressions in order to clean and to prepare the data to analyse. 
+
+# The results of web scraping
+
+Here I am going to show the "head" of the dataset of the top 100 games of all times and all consoles by metascore, once the data is well prepared. The other datasets look similar.
+
+```{r echo=FALSE, warning=FALSE}
+
+
+platform <- c("all", "ps4", "xboxone", "switch", "pc", "wii-u", "3ds", "vita", "ios")
+
+# ----------------------------- METASCORE --------------------------------------------------------------------------------------------------- 
+datalist.meta <- list()
+
+for (i in 1:length(platform)){
+  url <- paste0("http://www.metacritic.com/browse/games/score/metascore/all/", platform[i], "/filtered?sort=desc")
+  myurl <- read_html(url)
+  
+  games_console <- myurl %>%
+    html_nodes("div.product_item  a") %>%
+    html_text()
+  
+  metacritic.ratings <- myurl %>%
+    html_nodes("div.metascore_w") %>%
+    html_text() %>%
+    as.numeric()
+  
+  dates <- myurl %>%
+    html_nodes("div.product_date") %>%
+    html_text()
+  
+  dates <- gsub("\n", "", dates)
+  dates <- gsub(" ", "", dates)
+  dates <- mdy(dates)
+  
+  games_console <- gsub("\n", "", games_console)
+  games_console <- str_trim(games_console)
+  
+  console <- str_extract(games_console, "\\(.*\\)")
+  console <- str_replace(console, "\\(", "")
+  console <- str_replace(console, "\\)", "")
+  
+  games <- str_replace(games_console, "\\(.*\\)", "")
+  games <- str_trim(games)
+  
+  datalist.meta[[i]] <- data.frame(game=games, console=console, metacritic.ratings=metacritic.ratings, date=dates)
+}
+
+all.meta <- datalist.meta[[1]]
+PS4.meta <- datalist.meta[[2]][, -2]
+xboxone.meta <- datalist.meta[[3]][, -2]
+switch.meta <- datalist.meta[[4]][, -2]
+pc.meta <- datalist.meta[[5]][, -2]
+wiiu.meta <- datalist.meta[[6]][, -2]
+ds3.meta <- datalist.meta[[7]][, -2]
+vita.meta <- datalist.meta[[8]][, -2]
+ios.meta <- datalist.meta[[9]][, -2]
+
+
+# -------------------------------------------------------- USER SCORE -------------------------------------------------------------
+
+
+datalist.users <- list()
+
+for (i in 1:length(platform)){
+  url <- paste0("http://www.metacritic.com/browse/games/score/userscore/all/", platform[i], "/filtered?sort=desc")
+  myurl <- read_html(url)
+  
+  games_console <- myurl %>%
+    html_nodes("div.product_item  a") %>%
+    html_text()
+  
+  user.ratings <- myurl %>%
+    html_nodes("div.metascore_w") %>%
+    html_text() %>%
+    as.numeric()
+  
+  dates <- myurl %>%
+    html_nodes("div.product_date") %>%
+    html_text()
+  
+  dates <- gsub("\n", "", dates)
+  dates <- gsub(" ", "", dates)
+  dates <- mdy(dates)
+  
+  games_console <- gsub("\n", "", games_console)
+  games_console <- str_trim(games_console)
+  
+  console <- str_extract(games_console, "\\(.*\\)")
+  console <- str_replace(console, "\\(", "")
+  console <- str_replace(console, "\\)", "")
+  
+  games <- str_replace(games_console, "\\(.*\\)", "")
+  games <- str_trim(games)
+  
+  datalist.users[[i]] <- data.frame(game=games, console=console, user.ratings=user.ratings, date=dates)
+}
+
+all.users <- datalist.users[[1]]
+PS4.users <- datalist.users[[2]][, -2]
+xboxone.users <- datalist.users[[3]][, -2]
+switch.users <- datalist.users[[4]][, -2]
+pc.users <- datalist.users[[5]][, -2]
+wiiu.users <- datalist.users[[6]][, -2]
+ds3.users <- datalist.users[[7]][, -2]
+vita.users <- datalist.users[[8]][, -2]
+ios.users <- datalist.users[[9]][, -2]
+
+head(all.meta)
+
+```
+
+
+# Analysis
+
+Here I am going to carry out a descriptive analysis of the data set of the top 100 games of all times. I use the data set by metascore and the data set by userscore, in order to compare. I don't carry out the analysis of each data set (ps4, xboxone, switch...), the analysis would be similar.
+
+First of all we can start comparing the mean of the top 100 grades by metascore and userscore. We have to take into acount that the top 100 games for users might be different from the top 100 games for the metacritic.
+
+The mean of top 100 metascore:
+
+```{r echo=FALSE}
+# ----------------------------- Games of all times -----------------------------------------------
+
+# mean of the top 100 for metascore all games and videoconsoles 
+mean(all.meta$metacritic.ratings)
+
+```
+
+The mean of the top 100 userscore:
+
+```{r echo=FALSE}
+mean(10*all.users$user.ratings) # it seems that the users don't think the same
+
+```
+
+We can see that the mean of the grades of the users is lower than the mean of the metascore, it seems that the magazines inflate the rates, may be to keep the videogame business alive and to keep the people buying videogames.
+
+Next we can see the histograms of the grades in the Figures 1 and 2, for both cases.
+
+```{r, echo=FALSE, fig1, fig.height = 5, fig.width = 6.5, fig.align='center', fig.cap="Histogram of the rates for the top 100 videogames by metascore"}
+hist(all.meta$metacritic.ratings, main = "Rates of the 100 top videogames by metacritic", xlab = "rates") # it doesn't follow a normal
+```
+
+
+```{r, echo=FALSE, fig2, fig.height = 5, fig.width = 6.5, fig.align='center', fig.cap="Histogram of the rates for the top 100 videogames by userscore"}
+hist(10*all.users$user.ratings, main = "Rates of the 100 top videogames by users", xlab = "Rates") # it doesn't follow a normal
+```
+
+
+Next we can check if the mean of the top 100 videogames by metascore is significantly different from the top 100 videogames by users. I compare the means by a t-test, eventhough we have seen that the histograms don't have a normal shape.
+
+```{r echo=FALSE}
+t.test(all.meta$metacritic.ratings-10*all.users$user.ratings, alternative = "greater") # Yes, it seems that in general the magazines give higher rates to the videogames
+
+
+```
+
+We can see that the difference is significantly different from zero, then we can say that there is an obvious difference between the way of rating of magazines and users.
+
+
+Now we are going to see which is the best rate given by metascore.
+
+```{r echo=FALSE}
+# Max grade given by magazines 
+max(all.meta$metacritic.ratings)
+
+```
+
+And the game with this mark is the following one, which correspond to the best game ever regarding the metascore criteria.
+
+```{r}
+# The game is:
+all.meta$game[which(all.meta$metacritic.ratings == max(all.meta$metacritic.ratings))]; all.meta$console[which(all.meta$metacritic.ratings == max(all.meta$metacritic.ratings))]
+```
+"The Legend of Zelda: Ocarina of Time" of the "N64" is the best game.
+
+Now we are going to see the game within the top 100 by metascore that has the worst grade.
+
+```{r echo=FALSE}
+# Max grade given by magazines 
+min(all.meta$metacritic.ratings)
+
+```
+
+And the game is.
+
+```{r echo=FALSE}
+all.meta$game[which(all.meta$metacritic.ratings == min(all.meta$metacritic.ratings))]
+```
+
+We can see that there is a tie with many games, in fact we can see how many games have the same grade.
+
+```{r echo=FALSE}
+table(all.meta$metacritic.ratings) # 39 games with a 94
+```
+
+Next, we can see which is the oldest game in the ranking by metascore.
+
+```{r echo=FALSE}
+# The most old game of the magazines
+min(all.meta$date);
+# The game is:
+all.meta$game[which(all.meta$date == min(all.meta$date))];
+all.meta$console[which(all.meta$date == min(all.meta$date))]
+```
+
+The game is the "Sid Meier's Civilization II" of PC from the year 1996.
+
+And the newest game in the ranking is.
+
+```{r echo=FALSE}
+# The most new game of the magazines
+max(all.meta$date);
+# The game is:
+all.meta$game[which(all.meta$date == max(all.meta$date))];
+all.meta$console[which(all.meta$date == max(all.meta$date))]
+```
+The game is "God of War" of PS4 from the year 2018
+
+The difference in time between the oldest and the newest is.
+
+```{r echo=FALSE}
+# difference between dates
+as.numeric(diff.Date(c(min(all.meta$date), max(all.meta$date))))/365 # 22.15 years
+```
+More than 22 years. Now, we create a new categorical variable, which is the intervals of years by five years each one, and we want to see which was the best period of time for the videogames by metascore.
+
+```{r echo=FALSE}
+# we create a new categorical variable from the dates
+b <- c(ymd("2001-01-01"), ymd("2006-01-01"), ymd("2011-01-01"), ymd("2016-01-01"))
+all.meta$interval.time <- cut2(all.meta$date, b)
+all.meta$interval.time[72] <- as.factor("[2016-01-01,2018-04-20]")
+
+# We can see which is the best interval of time for videogames regarding the magazines criteria
+table(all.meta$interval.time) # it seems as if from 2001 to 2011 we had better games, is it true? or there was a trend to rate better the games?
+```
+
+Here a barplot of this table.
+
+```{r, echo=FALSE, fig3, fig.height = 5, fig.width = 6.5, fig.align='center', fig.cap="Number of top games by metascore and by period of time"}
+par(las=1)
+intervals <- all.meta$interval.time
+levels(intervals) <- c("1", "2", "3", "4", "5")
+# We can see which is the best interval of time for videogames regarding the magazines criteria
+barplot(table(intervals), main = "Number of top games by period of time", xlab = "Date") # it seems as if from 2001 to 2011 we had better games, is it true? or there was a trend to rate better the games?
+```
+
+As we can see in the intervals 2 and three that correspond to the interval between 2001 and 2011 we have more games that belong to the top 100 by metascore. It is the best era of videogames? Or there was a trend to grade better the games? The games of this era are better than the games from the 90's decade? Or it is marketing because people buy more games?
+
+Now we are going to see the same that we have seen by metascore but using the dataset of the userscores.
+
+We start looking at the highest mark of the user scores.
+
+```{r echo=FALSE}
+# Max grade given by users 
+max(10*all.users$user.ratings)
+# The game is:
+all.users$game[which(all.users$user.ratings == max(all.users$user.ratings))];
+all.users$console[which(all.users$user.ratings == max(all.users$user.ratings))]
+```
+
+The best game ever by users is the "Resident Evil Remake" of "Game Cube" with a mark equal to 94.
+
+And the game in top 100 list by users with the lowest mark is the following.
+
+```{r echo=FALSE}
+# Max grade given by users 
+min(10*all.users$user.ratings)
+# The game is:
+all.users$game[which(all.users$user.ratings == min(all.users$user.ratings))];
+all.users$console[which(all.users$user.ratings == min(all.users$user.ratings))]
+```
+
+There are a lot of games with the mark 90, again we can see the table with the games by marks.
+
+```{r echo=FALSE}
+table(10*all.users$user.ratings) # 31 games with a 90, we can see that the range is a little bit lower and the lowest rate of magazines is the best rate of users
+
+```
+
+We observe that there is a tendency to rate 4-5 points lower by users than by magazines.
+
+The oldest game in this ranking is.
+
+```{r echo=FALSE}
+# The most old game of the magazines
+min(all.users$date)
+# The game is:
+all.users$game[which(all.users$date == min(all.users$date))];
+all.users$console[which(all.users$date == min(all.users$date))]
+
+```
+
+The game is the "Resident Evil" of "Play Station" from 1996. We can see that the Resident Evil is a very high regarded game among the users. In this top list we have the original "Resident Evil" and as the best game ever by users we have the "Resident Evil Remake".
+
+The newest games in this list is.
+
+```{r echo=FALSE}
+# The most old game of the magazines
+max(all.users$date)
+# The game is:
+all.users$game[which(all.users$date == max(all.users$date))];
+all.users$console[which(all.users$date == max(all.users$date))]
+
+```
+
+In this case, metascore and userscore coincide and we have the same newest game in both lists.
+
+Next, we see the time difference between the newest and the oldest games.
+```{r}
+# difference between dates
+as.numeric(diff.Date(c(min(all.users$date), max(all.users$date))))/365 # 22.07 years (almost the same as before)
+```
+
+A little more than 22 years, more or less equal as in the ranking we have seen of metascores.
+
+Now we create a categorical variable again, which is the intervals of time, in order to see which is the best era regarding the users criteria.
+
+```{r echo=FALSE}
+# we create a new categorical variable from the dates
+all.users$interval.time <- cut2(all.users$date, b)
+all.users$interval.time[6] <- as.factor("[2016-01-01,2018-04-20]")
+
+# We can see which is the best interval of time for videogames regarding the magazines criteria
+table(all.users$interval.time) # Regarding the users criteria, it seems that the best interval of time of videogames was between 2001 and 2006 and then it decreases again
+```
+
+And the barplot.
+
+```{r, echo=FALSE, fig4, fig.height = 5, fig.width = 6.5, fig.align='center', fig.cap="Number of top games by usercore and by period of time"}
+par(las=1)
+intervals2 <- all.users$interval.time
+levels(intervals2) <- c("1", "2", "3", "4", "5")
+# We can see which is the best interval of time for videogames regarding the magazines criteria
+barplot(table(intervals2), main = "Number of top games by period of time", xlab = "Date") # it seems as if from 2001 to 2011 we had better games, is it true? or there was a trend to rate better the games?
+```
+
+In this case we clearly see that the best period of games for the users is betwwen 2001 and 2006, but not from 2006 to 2011 as we have seen before. It could be that between 2001 and 2006 there were very good games, users and magazines rate them very well, but from 2006 to 2011 the magazines went on grading them very high whereas the users not. May be the magazines where payed to maintain the videogame industry at the top.
+
+
+The next thing we could check is if the users and the magazines have the same fauvorite games. Now we can see how many videogames they have in common.
+
+```{r echo=FALSE}
+# How many games coincide in the top 100 of metascore and userscore?
+sum(all.users$game %in% all.meta$game) # Only a 21% of the games are in common
+```
+
+They have 21 videogames out of 100 in common, so their preferences are very different.
+
+Finally, we can see at which consoles these games belong. Next we see a barplot which indicates it by magazines.
+
+```{r, echo=FALSE, fig5, fig.height = 5, fig.width = 6.5, fig.align='center', fig.cap="Number of top games by metascore and by platform"}
+# consoles in the top 100
+par(las=2)
+barplot(table(all.meta$console), main = "Games vs. Platform by metascore") # the best console could be x360, pc, ps2 or ps3, the games of ps or N64 were as well rated as the games of nowadays?
+
+```
+
+Regarding the magazines the greatest amount of best games are for PC, in second place PS3 and in the third place Xbox 360.
+
+Now we can see the same by users opinion.
+
+```{r, echo=FALSE, fig6, fig.height = 5, fig.width = 6.5, fig.align='center', fig.cap="Number of top games by metascore and by platform"}
+# consoles in the top 100
+par(las=2)
+barplot(table(all.users$console), main = "Games vs. Platform by users") # Clearly users prefer pc or ps2
+
+```
+
+We can see that clearly the users prefer the PC, and in second place the PS2, which has a lot of sense, since the PS2 is considered to have the best catalogue of games among the consoles. On the other hand, there are very few games of PS3 and Xbox360, which is a generation of consoles not very much well regarded among users. From my poin of view it has more sense this last barplot, there was clearly a tendency to grade very high the videogames of PS3 and Xbox 360, whereas they weren't as good as other games from other generations, it is well known among the players.
+
+
+# Conclusions
+
+While trying to carry out this project I had to change the web site 3 times, I had troubles for scrapping data from some webpages. I tryed to scrap data from the www.atpworldtour.com related to tennis, but there were a lot of elements that belonged to the same class and I didn't know how to select only the ones that interested me, I suppose that if I had looked at the tutorial of CSS selectors before I wouldn't have had problems, but I did it later. I also tryed to scrap tables from the www.motogp.com, but the tables in that web page where formed by $<tr> <\tr>$ only the even rows (in the odd rows there was the symbol $<\tr>$ at the end, but not the the symbol $<tr>$ at the begining and I don't know why), and when I used the function `html_table()` I got only the even rows, I didn't know how to get also the odd rows, I looked for learning how to get those tables, but I didn't find anything related to that. Finally I tryed the www.metacritic.com, and I had more or less the same problem that I had with the www.atpworldtour.com, then is when I started learning how to use the CSS selectors, and I could scrap the data I wanted. Finally, I got 18 datasets and here we have only used 2 of them, as I mentioned before. To get these data sets I used a loop and I add the datasets to a list while the loop was going on, it can be seen in the reproducible script attached.
+
+
+
